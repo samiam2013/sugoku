@@ -10,13 +10,37 @@ import (
 )
 
 func main() {
-	brd := generateBoard(3)
+	brd := generateBoard(60)
+	brd.print()
 	// fmt.Printf("%#v\n", brd)
 	fmt.Printf("is board valid?: %t\n", brd.validate())
 }
 
 type board struct {
 	box [81]int
+}
+
+func (b *board) print() {
+	for i := range 9 {
+		printLine()
+		fmt.Print("| ")
+		for _, num := range b.box[(i * 9):((i + 1) * 9)] {
+			if num == 0 {
+				fmt.Print("  | ")
+			} else {
+				fmt.Printf("%d | ", num)
+			}
+		}
+		fmt.Println()
+	}
+	printLine()
+}
+
+func printLine() {
+	for range 9 {
+		fmt.Print("+---")
+	}
+	fmt.Println("+")
 }
 
 func (b *board) validate() bool {
@@ -67,7 +91,7 @@ func validateSeries(nineBoxes []int) bool {
 	}
 	freq := make(map[int]int, 9)
 	for _, val := range nineBoxes {
-		if f, ok := freq[val]; !ok {
+		if f, ok := freq[val]; !ok && val != 0 {
 			freq[val] = 1
 		} else if f > 1 && val != 0 {
 			return false
