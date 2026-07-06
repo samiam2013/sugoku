@@ -10,14 +10,71 @@ import (
 )
 
 func main() {
-	brd := generateBoard(60)
+	brd := generateBoard(7)
 	brd.print()
 	// fmt.Printf("%#v\n", brd)
 	fmt.Printf("is board valid?: %t\n", brd.validate())
+	brd.evalPossibles()
 }
 
 type board struct {
-	box [81]int
+	box      [81]int // 0 for empty spaces
+	possible [81]map[int]struct{}
+}
+
+func (b *board) evalPossibles() {
+	for i, v := range b.box {
+		if v == 0 {
+			b.evalPossible(i)
+			return
+		} else {
+			continue
+		}
+	}
+}
+
+func (b *board) evalPossible(idx int) {
+	colIdx := idx % 9
+	rowIdx := (idx - (colIdx)) / 9
+	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
+	houseColIdx := (colIdx - (colIdx % 3)) / 3
+	fmt.Println(
+		"colIdx", colIdx,
+		"rowIdx", rowIdx,
+		"houseRowIdx", houseRowIdx,
+		"houseColIdx", houseColIdx)
+
+}
+
+func (b *board) rowOccupants(rowIdx int) []int {
+	startIdx := rowIdx * 9
+	endIdx := startIdx + 9
+	occupants := []int{}
+	for i := startIdx; i <= endIdx; i++ {
+		val := b.box[i]
+		if val != 0 {
+			occupants = append(occupants, val)
+		}
+	}
+	return occupants
+}
+
+func (b *board) colOccupants(colIdx int) []int {
+	startIdx := colIdx
+	occupants := []int{}
+	for i := startIdx; i < 81; i += 9 {
+		val := b.box[i]
+		if val != 0 {
+			occupants = append(occupants, val)
+		}
+	}
+	return occupants
+}
+
+func (b *board) houseOccupants(houseRowIdx, houseColIdx int) []int {
+	_ = houseRowIdx
+	_ = houseColIdx
+	return nil
 }
 
 func (b *board) print() {
