@@ -10,11 +10,16 @@ import (
 )
 
 func main() {
-	brd := generateBoard(7)
+	brd := generateBoard(17)
 	brd.print()
-	// fmt.Printf("%#v\n", brd)
 	fmt.Printf("is board valid?: %t\n", brd.validate())
-	brd.evalPossibles()
+	for {
+		solved := brd.evalPossibles()
+		if solved == 0 {
+			break
+		}
+	}
+	brd.print()
 }
 
 type board struct {
@@ -22,35 +27,49 @@ type board struct {
 	possible [81]map[int]struct{}
 }
 
-func (b *board) evalPossibles() {
+func (b *board) evalPossibles() (solved int) {
 	for i, v := range b.box {
 		if v == 0 {
-			b.evalPossible(i)
-			return
-		} else {
-			continue
+			poss := b.evalPossible(i)
+			if len(poss) == 1 {
+				b.box[i] = poss[0]
+				solved++
+			}
 		}
 	}
+	return solved
 }
 
-func (b *board) evalPossible(idx int) {
+func (b *board) evalPossible(idx int) []int {
 	colIdx := idx % 9
 	rowIdx := (idx - (colIdx)) / 9
 	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
 	houseColIdx := (colIdx - (colIdx % 3)) / 3
-	fmt.Println(
-		"colIdx", colIdx,
-		"rowIdx", rowIdx,
-		"houseRowIdx", houseRowIdx,
-		"houseColIdx", houseColIdx)
-
+	occupants := []int{}
+	houseOcc := b.houseOccupants(houseRowIdx, houseColIdx)
+	occupants = append(occupants, houseOcc...)
+	occupants = append(occupants, b.rowOccupants(rowIdx)...)
+	occupants = append(occupants, b.colOccupants(colIdx)...)
+	uniqueOccupants := make(map[int]struct{})
+	for _, occupant := range occupants {
+		if _, ok := uniqueOccupants[occupant]; !ok {
+			uniqueOccupants[occupant] = struct{}{}
+		}
+	}
+	possibilities := []int{}
+	for i := 1; i <= 9; i++ {
+		if _, ok := uniqueOccupants[i]; !ok {
+			possibilities = append(possibilities, i)
+		}
+	}
+	return possibilities
 }
 
 func (b *board) rowOccupants(rowIdx int) []int {
 	startIdx := rowIdx * 9
 	endIdx := startIdx + 9
 	occupants := []int{}
-	for i := startIdx; i <= endIdx; i++ {
+	for i := startIdx; i < endIdx; i++ {
 		val := b.box[i]
 		if val != 0 {
 			occupants = append(occupants, val)
@@ -71,10 +90,22 @@ func (b *board) colOccupants(colIdx int) []int {
 	return occupants
 }
 
+// get the occupants of a house given any index that falls inside that house
 func (b *board) houseOccupants(houseRowIdx, houseColIdx int) []int {
-	_ = houseRowIdx
-	_ = houseColIdx
-	return nil
+	startingRow := houseRowIdx * 3
+	startingCol := houseColIdx * 3
+	occupants := []int{}
+	for rowOffset := range 3 {
+		startIdx := (startingRow + rowOffset) * 9
+		for colOffset := range 3 {
+			idxToCheck := startIdx + startingCol + colOffset
+			val := b.box[idxToCheck]
+			if val != 0 {
+				occupants = append(occupants, val)
+			}
+		}
+	}
+	return occupants
 }
 
 func (b *board) print() {
@@ -103,14 +134,12 @@ func printLine() {
 func (b *board) validate() bool {
 	startT := time.Now()
 	// check each line
-	// fmt.Println("checking each line")
 	for i := range 9 {
 		if !validateSeries(b.box[(i * 9):((i * 9) + 9)]) {
 			return false
 		}
 	}
 	// check each column
-	// fmt.Println("checking each column")
 	for i := range 9 {
 		col := [9]int{}
 		for j := range 9 {
@@ -121,7 +150,6 @@ func (b *board) validate() bool {
 		}
 	}
 	// check each house
-	// fmt.Println("checking each house")
 	for i := range 3 {
 		for j := range 3 {
 			house := []int{}
@@ -154,7 +182,6 @@ func validateSeries(nineBoxes []int) bool {
 			return false
 		}
 	}
-	// fmt.Printf("%#v\n", freq)
 	return true
 }
 
