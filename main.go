@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os/exec"
 	"strconv"
-	"time"
 )
 
 func main() {
@@ -35,12 +34,12 @@ func (b *board) solveHiddenSingles() (solved int) {
 	return solved
 }
 
-func (b *board) evalPossible(idx int) (occupants []int) {
+func (b *board) evalPossible(idx int) (possibilities []int) {
 	colIdx := idx % 9
 	rowIdx := (idx - (colIdx)) / 9
 	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
 	houseColIdx := (colIdx - (colIdx % 3)) / 3
-	occupants = append(occupants, b.houseOccupants(houseRowIdx, houseColIdx)...)
+	occupants := b.houseOccupants(houseRowIdx, houseColIdx)
 	occupants = append(occupants, b.rowOccupants(rowIdx)...)
 	occupants = append(occupants, b.colOccupants(colIdx)...)
 	uniqueOccupants := make(map[int]struct{})
@@ -49,7 +48,6 @@ func (b *board) evalPossible(idx int) (occupants []int) {
 			uniqueOccupants[occupant] = struct{}{}
 		}
 	}
-	possibilities := []int{}
 	for i := 1; i <= 9; i++ {
 		if _, ok := uniqueOccupants[i]; !ok {
 			possibilities = append(possibilities, i)
@@ -59,23 +57,18 @@ func (b *board) evalPossible(idx int) (occupants []int) {
 }
 
 func (b *board) rowOccupants(rowIdx int) (occupants []int) {
-	startIdx := rowIdx * 9
-	endIdx := startIdx + 9
-	for i := startIdx; i < endIdx; i++ {
-		val := b.box[i]
-		if val != 0 {
-			occupants = append(occupants, val)
+	for i := rowIdx * 9; i < (rowIdx*9)+9; i++ {
+		if b.box[i] != 0 {
+			occupants = append(occupants, b.box[i])
 		}
 	}
 	return occupants
 }
 
 func (b *board) colOccupants(colIdx int) (occupants []int) {
-	startIdx := colIdx
-	for i := startIdx; i < 81; i += 9 {
-		val := b.box[i]
-		if val != 0 {
-			occupants = append(occupants, val)
+	for i := colIdx; i < 81; i += 9 {
+		if b.box[i] != 0 {
+			occupants = append(occupants, b.box[i])
 		}
 	}
 	return occupants
@@ -120,24 +113,15 @@ func (b *board) print() {
 }
 
 func generateBoard(emptyCount int) (brd board) {
-	startT := time.Now()
 	cmd := exec.Command("python3", "./g4gGenerator/main.py", strconv.Itoa(emptyCount))
 	b, err := cmd.Output()
 	if err != nil {
 		slog.Error("Failed to run python sudoku generator", "error", err)
 	}
-	lines := bytes.Split(bytes.TrimRight(b, "\n"), []byte("\n"))
-	i := 0
-	for _, line := range lines {
-		values := bytes.Split(line, []byte(","))
-		for _, value := range values {
-			if len(value) > 1 {
-				panic("value longer than a single character")
-			}
-			brd.box[i] = int(value[0]) - 48
-			i++
+	for row, line := range bytes.Split(bytes.TrimRight(b, "\n"), []byte("\n")) {
+		for col, value := range bytes.Split(line, []byte(",")) {
+			brd.box[(row*9)+col] = int(value[0]) - 48
 		}
 	}
-	fmt.Printf("board generation took %s\n", time.Since(startT))
 	return brd
 }
