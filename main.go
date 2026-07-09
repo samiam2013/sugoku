@@ -12,7 +12,6 @@ import (
 func main() {
 	brd := generateBoard(17)
 	brd.print()
-	fmt.Printf("is board valid?: %t\n", brd.validate())
 	for {
 		solved := brd.evalPossibles()
 		if solved == 0 {
@@ -23,8 +22,7 @@ func main() {
 }
 
 type board struct {
-	box      [81]int // 0 for empty spaces
-	possible [81]map[int]struct{}
+	box [81]int // 0 for empty spaces
 }
 
 func (b *board) evalPossibles() (solved int) {
@@ -129,60 +127,6 @@ func printLine() {
 		fmt.Print("+---")
 	}
 	fmt.Println("+")
-}
-
-func (b *board) validate() bool {
-	startT := time.Now()
-	// check each line
-	for i := range 9 {
-		if !validateSeries(b.box[(i * 9):((i * 9) + 9)]) {
-			return false
-		}
-	}
-	// check each column
-	for i := range 9 {
-		col := [9]int{}
-		for j := range 9 {
-			col[j] = b.box[i+(j*9)]
-		}
-		if !validateSeries(col[:]) {
-			return false
-		}
-	}
-	// check each house
-	for i := range 3 {
-		for j := range 3 {
-			house := []int{}
-			for k := range 3 {
-				startIdx := (k * 9) + (j * 9) + (i * 3)
-				endIdx := startIdx + 3
-				house = append(house, b.box[startIdx:endIdx]...)
-			}
-			if !validateSeries(house) {
-				return false
-			}
-		}
-	}
-	fmt.Printf("validated in %s\n", time.Since(startT))
-	return true
-}
-
-func validateSeries(nineBoxes []int) bool {
-	if len(nineBoxes) < 9 {
-		panic("less than 9 boxes in series to validate!")
-	}
-	if len(nineBoxes) > 9 {
-		panic("more than 9 boxes in series to validate!")
-	}
-	freq := make(map[int]int, 9)
-	for _, val := range nineBoxes {
-		if f, ok := freq[val]; !ok && val != 0 {
-			freq[val] = 1
-		} else if f > 1 && val != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 func generateBoard(emptyCount int) board {
