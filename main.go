@@ -107,6 +107,12 @@ func (b *board) houseOccupants(houseRowIdx, houseColIdx int) []int {
 }
 
 func (b *board) print() {
+	printLine := func() {
+		for range 9 {
+			fmt.Print("+---")
+		}
+		fmt.Println("+")
+	}
 	for i := range 9 {
 		printLine()
 		fmt.Print("| ")
@@ -120,13 +126,6 @@ func (b *board) print() {
 		fmt.Println()
 	}
 	printLine()
-}
-
-func printLine() {
-	for range 9 {
-		fmt.Print("+---")
-	}
-	fmt.Println("+")
 }
 
 func generateBoard(emptyCount int) board {
