@@ -12,11 +12,8 @@ import (
 func main() {
 	brd := generateBoard(17)
 	brd.print()
-	for {
-		solved := brd.evalPossibles()
-		if solved == 0 {
-			break
-		}
+	for brd.solveHiddenSingles() != 0 {
+		continue
 	}
 	brd.print()
 }
@@ -25,7 +22,7 @@ type board struct {
 	box [81]int // 0 for empty spaces
 }
 
-func (b *board) evalPossibles() (solved int) {
+func (b *board) solveHiddenSingles() (solved int) {
 	for i, v := range b.box {
 		if v == 0 {
 			poss := b.evalPossible(i)
@@ -38,14 +35,12 @@ func (b *board) evalPossibles() (solved int) {
 	return solved
 }
 
-func (b *board) evalPossible(idx int) []int {
+func (b *board) evalPossible(idx int) (occupants []int) {
 	colIdx := idx % 9
 	rowIdx := (idx - (colIdx)) / 9
 	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
 	houseColIdx := (colIdx - (colIdx % 3)) / 3
-	occupants := []int{}
-	houseOcc := b.houseOccupants(houseRowIdx, houseColIdx)
-	occupants = append(occupants, houseOcc...)
+	occupants = append(occupants, b.houseOccupants(houseRowIdx, houseColIdx)...)
 	occupants = append(occupants, b.rowOccupants(rowIdx)...)
 	occupants = append(occupants, b.colOccupants(colIdx)...)
 	uniqueOccupants := make(map[int]struct{})
@@ -63,10 +58,9 @@ func (b *board) evalPossible(idx int) []int {
 	return possibilities
 }
 
-func (b *board) rowOccupants(rowIdx int) []int {
+func (b *board) rowOccupants(rowIdx int) (occupants []int) {
 	startIdx := rowIdx * 9
 	endIdx := startIdx + 9
-	occupants := []int{}
 	for i := startIdx; i < endIdx; i++ {
 		val := b.box[i]
 		if val != 0 {
@@ -76,9 +70,8 @@ func (b *board) rowOccupants(rowIdx int) []int {
 	return occupants
 }
 
-func (b *board) colOccupants(colIdx int) []int {
+func (b *board) colOccupants(colIdx int) (occupants []int) {
 	startIdx := colIdx
-	occupants := []int{}
 	for i := startIdx; i < 81; i += 9 {
 		val := b.box[i]
 		if val != 0 {
@@ -89,16 +82,14 @@ func (b *board) colOccupants(colIdx int) []int {
 }
 
 // get the occupants of a house given any index that falls inside that house
-func (b *board) houseOccupants(houseRowIdx, houseColIdx int) []int {
+func (b *board) houseOccupants(houseRowIdx, houseColIdx int) (occupants []int) {
 	startingRow := houseRowIdx * 3
 	startingCol := houseColIdx * 3
-	occupants := []int{}
 	for rowOffset := range 3 {
 		startIdx := (startingRow + rowOffset) * 9
 		for colOffset := range 3 {
 			idxToCheck := startIdx + startingCol + colOffset
-			val := b.box[idxToCheck]
-			if val != 0 {
+			if val := b.box[idxToCheck]; val != 0 {
 				occupants = append(occupants, val)
 			}
 		}
@@ -128,7 +119,7 @@ func (b *board) print() {
 	printLine()
 }
 
-func generateBoard(emptyCount int) board {
+func generateBoard(emptyCount int) (brd board) {
 	startT := time.Now()
 	cmd := exec.Command("python3", "./g4gGenerator/main.py", strconv.Itoa(emptyCount))
 	b, err := cmd.Output()
@@ -136,7 +127,6 @@ func generateBoard(emptyCount int) board {
 		slog.Error("Failed to run python sudoku generator", "error", err)
 	}
 	lines := bytes.Split(bytes.TrimRight(b, "\n"), []byte("\n"))
-	brd := board{}
 	i := 0
 	for _, line := range lines {
 		values := bytes.Split(line, []byte(","))
