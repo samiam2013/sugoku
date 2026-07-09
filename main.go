@@ -24,8 +24,7 @@ type board struct {
 func (b *board) solveHiddenSingles() (solved int) {
 	for i, v := range b.box {
 		if v == 0 {
-			poss := b.evalPossible(i)
-			if len(poss) == 1 {
+			if poss := b.evalPossible(i); len(poss) == 1 {
 				b.box[i] = poss[0]
 				solved++
 			}
