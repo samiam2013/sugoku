@@ -9,16 +9,84 @@ import (
 )
 
 func main() {
-	brd := generateBoard(17)
+	brd := generateBoard(37)
 	brd.print()
 	for brd.solveHiddenSingles() != 0 {
 		continue
 	}
 	brd.print()
+	fmt.Printf("Puzzle validity: %t\n", brd.valid())
+	fmt.Printf("Puzzle filled: %t\n", brd.filled())
 }
 
 type board struct {
 	box [81]int // 0 for empty spaces
+}
+
+func (b *board) filled() bool {
+	for i := range 9 {
+		rowOcc := b.rowOccupants(i)
+		colOcc := b.colOccupants(i)
+		if len(rowOcc) < 9 || len(colOcc) < 9 {
+			return false
+		}
+	}
+	for i := range 3 {
+		for j := range 3 {
+			houseOcc := b.houseOccupants(i, j)
+			if len(houseOcc) < 9 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (b *board) valid() bool {
+	for i := range 9 {
+		rowOcc := b.rowOccupants(i)
+		rowFreq := freq(rowOcc)
+		if hasOverlap(rowFreq) {
+			return false
+		}
+		colOcc := b.colOccupants(i)
+		colFreq := freq(colOcc)
+		if hasOverlap(colFreq) {
+			return false
+		}
+	}
+	for i := range 3 {
+		for j := range 3 {
+			houseOcc := b.houseOccupants(i, j)
+			houseFreq := freq(houseOcc)
+			if hasOverlap(houseFreq) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func hasOverlap(frequency map[int]int) bool {
+	for _, ct := range frequency {
+		if ct > 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func freq(occupants []int) map[int]int {
+	frequency := make(map[int]int)
+	for _, occupant := range occupants {
+		if _, ok := frequency[occupant]; !ok {
+			frequency[occupant] = 1
+		} else {
+			frequency[occupant]++
+		}
+	}
+	return frequency
 }
 
 func (b *board) solveHiddenSingles() (solved int) {
