@@ -9,10 +9,21 @@ import (
 )
 
 func main() {
-	brd := generateBoard(37)
+	// 17 filled spaces required to necessitate some number of solutions
+	emptySpaces := 81 - 40
+	brd := generateBoard(emptySpaces)
 	brd.print()
-	for brd.solveHiddenSingles() != 0 {
-		continue
+	for {
+		for brd.solveHiddenSingles() != 0 {
+			continue
+		}
+		if brd.filled() {
+			break
+		}
+		brd.guessOne()
+		if brd.filled() {
+			break
+		}
 	}
 	brd.print()
 	fmt.Printf("Puzzle validity: %t\n", brd.valid())
@@ -21,6 +32,26 @@ func main() {
 
 type board struct {
 	box [81]int // 0 for empty spaces
+}
+
+func (b *board) guessOne() {
+	for i := range 81 {
+		if b.box[i] == 0 {
+			possible := b.evalPossible(i)
+			if len(possible) > 0 && len(possible) <= 3 {
+				b.box[i] = possible[0]
+				return
+			} else {
+				// b.print()
+				// colIdx := i % 9
+				// rowIdx := (i - (colIdx)) / 9
+				// colOcc := b.colOccupants(colIdx)
+				// rowOcc := b.rowOccupants(rowIdx)
+				// panic(fmt.Sprintf("no possibilities for space %d, \n\trow (%d): %+v \n\tcol(%d): %+v", i, rowIdx, rowOcc, colIdx, colOcc))
+			}
+		}
+	}
+	panic("found nothing to guess")
 }
 
 func (b *board) filled() bool {
@@ -115,6 +146,7 @@ func (b *board) evalPossible(idx int) (possibilities []int) {
 			uniqueOccupants[occupant] = struct{}{}
 		}
 	}
+	// fmt.Printf("unique occupants: %+v\n", uniqueOccupants)
 	for i := 1; i <= 9; i++ {
 		if _, ok := uniqueOccupants[i]; !ok {
 			possibilities = append(possibilities, i)
