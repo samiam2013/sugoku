@@ -6,21 +6,164 @@ import (
 	"log/slog"
 	"os/exec"
 	"strconv"
-	"time"
 )
 
 func main() {
-	brd := generateBoard(60)
+	brd := generateBoard(37)
 	brd.print()
-	// fmt.Printf("%#v\n", brd)
-	fmt.Printf("is board valid?: %t\n", brd.validate())
+	for brd.solveHiddenSingles() != 0 {
+		continue
+	}
+	brd.print()
+	fmt.Printf("Puzzle validity: %t\n", brd.valid())
+	fmt.Printf("Puzzle filled: %t\n", brd.filled())
 }
 
 type board struct {
-	box [81]int
+	box [81]int // 0 for empty spaces
+}
+
+func (b *board) filled() bool {
+	for i := range 9 {
+		rowOcc := b.rowOccupants(i)
+		colOcc := b.colOccupants(i)
+		if len(rowOcc) < 9 || len(colOcc) < 9 {
+			return false
+		}
+	}
+	for i := range 3 {
+		for j := range 3 {
+			houseOcc := b.houseOccupants(i, j)
+			if len(houseOcc) < 9 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (b *board) valid() bool {
+	for i := range 9 {
+		rowOcc := b.rowOccupants(i)
+		rowFreq := freq(rowOcc)
+		if hasOverlap(rowFreq) {
+			return false
+		}
+		colOcc := b.colOccupants(i)
+		colFreq := freq(colOcc)
+		if hasOverlap(colFreq) {
+			return false
+		}
+	}
+	for i := range 3 {
+		for j := range 3 {
+			houseOcc := b.houseOccupants(i, j)
+			houseFreq := freq(houseOcc)
+			if hasOverlap(houseFreq) {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func hasOverlap(frequency map[int]int) bool {
+	for _, ct := range frequency {
+		if ct > 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func freq(occupants []int) map[int]int {
+	frequency := make(map[int]int)
+	for _, occupant := range occupants {
+		if _, ok := frequency[occupant]; !ok {
+			frequency[occupant] = 1
+		} else {
+			frequency[occupant]++
+		}
+	}
+	return frequency
+}
+
+func (b *board) solveHiddenSingles() (solved int) {
+	for i, v := range b.box {
+		if v == 0 {
+			if poss := b.evalPossible(i); len(poss) == 1 {
+				b.box[i] = poss[0]
+				solved++
+			}
+		}
+	}
+	return solved
+}
+
+func (b *board) evalPossible(idx int) (possibilities []int) {
+	colIdx := idx % 9
+	rowIdx := (idx - (colIdx)) / 9
+	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
+	houseColIdx := (colIdx - (colIdx % 3)) / 3
+	occupants := b.houseOccupants(houseRowIdx, houseColIdx)
+	occupants = append(occupants, b.rowOccupants(rowIdx)...)
+	occupants = append(occupants, b.colOccupants(colIdx)...)
+	uniqueOccupants := make(map[int]struct{})
+	for _, occupant := range occupants {
+		if _, ok := uniqueOccupants[occupant]; !ok {
+			uniqueOccupants[occupant] = struct{}{}
+		}
+	}
+	for i := 1; i <= 9; i++ {
+		if _, ok := uniqueOccupants[i]; !ok {
+			possibilities = append(possibilities, i)
+		}
+	}
+	return possibilities
+}
+
+func (b *board) rowOccupants(rowIdx int) (occupants []int) {
+	for i := rowIdx * 9; i < (rowIdx*9)+9; i++ {
+		if b.box[i] != 0 {
+			occupants = append(occupants, b.box[i])
+		}
+	}
+	return occupants
+}
+
+func (b *board) colOccupants(colIdx int) (occupants []int) {
+	for i := colIdx; i < 81; i += 9 {
+		if b.box[i] != 0 {
+			occupants = append(occupants, b.box[i])
+		}
+	}
+	return occupants
+}
+
+// get the occupants of a house given any index that falls inside that house
+func (b *board) houseOccupants(houseRowIdx, houseColIdx int) (occupants []int) {
+	startingRow := houseRowIdx * 3
+	startingCol := houseColIdx * 3
+	for rowOffset := range 3 {
+		startIdx := (startingRow + rowOffset) * 9
+		for colOffset := range 3 {
+			idxToCheck := startIdx + startingCol + colOffset
+			if val := b.box[idxToCheck]; val != 0 {
+				occupants = append(occupants, val)
+			}
+		}
+	}
+	return occupants
 }
 
 func (b *board) print() {
+	printLine := func() {
+		for range 9 {
+			fmt.Print("+---")
+		}
+		fmt.Println("+")
+	}
 	for i := range 9 {
 		printLine()
 		fmt.Print("| ")
@@ -36,91 +179,16 @@ func (b *board) print() {
 	printLine()
 }
 
-func printLine() {
-	for range 9 {
-		fmt.Print("+---")
-	}
-	fmt.Println("+")
-}
-
-func (b *board) validate() bool {
-	startT := time.Now()
-	// check each line
-	// fmt.Println("checking each line")
-	for i := range 9 {
-		if !validateSeries(b.box[(i * 9):((i * 9) + 9)]) {
-			return false
-		}
-	}
-	// check each column
-	// fmt.Println("checking each column")
-	for i := range 9 {
-		col := [9]int{}
-		for j := range 9 {
-			col[j] = b.box[i+(j*9)]
-		}
-		if !validateSeries(col[:]) {
-			return false
-		}
-	}
-	// check each house
-	// fmt.Println("checking each house")
-	for i := range 3 {
-		for j := range 3 {
-			house := []int{}
-			for k := range 3 {
-				startIdx := (k * 9) + (j * 9) + (i * 3)
-				endIdx := startIdx + 3
-				house = append(house, b.box[startIdx:endIdx]...)
-			}
-			if !validateSeries(house) {
-				return false
-			}
-		}
-	}
-	fmt.Printf("validated in %s\n", time.Since(startT))
-	return true
-}
-
-func validateSeries(nineBoxes []int) bool {
-	if len(nineBoxes) < 9 {
-		panic("less than 9 boxes in series to validate!")
-	}
-	if len(nineBoxes) > 9 {
-		panic("more than 9 boxes in series to validate!")
-	}
-	freq := make(map[int]int, 9)
-	for _, val := range nineBoxes {
-		if f, ok := freq[val]; !ok && val != 0 {
-			freq[val] = 1
-		} else if f > 1 && val != 0 {
-			return false
-		}
-	}
-	// fmt.Printf("%#v\n", freq)
-	return true
-}
-
-func generateBoard(emptyCount int) board {
-	startT := time.Now()
+func generateBoard(emptyCount int) (brd board) {
 	cmd := exec.Command("python3", "./g4gGenerator/main.py", strconv.Itoa(emptyCount))
 	b, err := cmd.Output()
 	if err != nil {
 		slog.Error("Failed to run python sudoku generator", "error", err)
 	}
-	lines := bytes.Split(bytes.TrimRight(b, "\n"), []byte("\n"))
-	brd := board{}
-	i := 0
-	for _, line := range lines {
-		values := bytes.Split(line, []byte(","))
-		for _, value := range values {
-			if len(value) > 1 {
-				panic("value longer than a single character")
-			}
-			brd.box[i] = int(value[0]) - 48
-			i++
+	for row, line := range bytes.Split(bytes.TrimRight(b, "\n"), []byte("\n")) {
+		for col, value := range bytes.Split(line, []byte(",")) {
+			brd.box[(row*9)+col] = int(value[0]) - 48
 		}
 	}
-	fmt.Printf("board generation took %s\n", time.Since(startT))
 	return brd
 }
