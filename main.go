@@ -10,48 +10,127 @@ import (
 
 func main() {
 	// 17 filled spaces required to necessitate some number of solutions
-	emptySpaces := 81 - 40
-	brd := generateBoard(emptySpaces)
-	brd.print()
+	emptySpaces := 81 - 25
+	b := generateBoard(emptySpaces)
+	b.print()
+	b.backtrackSolve()
+	b.print()
+	fmt.Printf("Puzzle validity: %t\n", b.valid())
+	fmt.Printf("Puzzle filled: %t\n", b.filled())
+}
+
+func (b *board) backtrackSolve() {
+	tryBacktrack := false
 	for {
-		for brd.solveHiddenSingles() != 0 {
-			continue
+		b.deductiveSolve()
+		if !b.valid() || tryBacktrack {
+			// clear all the current guess step spots
+			b.clearGuesses(b.guessStep)
+			// get the current guess in the guess step before that
+			b.guessStep--
+			guessIdx, guessVal := b.findGuess(b.guessStep)
+			fmt.Println("previous guess:", guessVal)
+			b.guessStep--
+			// guess the next possible
+			poss := b.evalPossible(guessIdx)
+			if len(poss) == 0 {
+				break
+				panic("no possible guesses at all (let alone another?)")
+			}
+			for _, p := range poss {
+				if p > guessVal {
+					b.shadow[guessIdx] = b.guessStep
+					b.guessStep++
+					break
+				}
+			}
 		}
-		if brd.filled() {
-			break
+		if b.filled() {
+			return
 		}
-		brd.guessOne()
-		if brd.filled() {
-			break
+
+		fmt.Println("trying backtrack")
+		// time to guess
+		b.guessStep++
+		// find the first open spot
+		for i := range 81 {
+			if b.box[i] == 0 {
+				poss := b.evalPossible(i)
+				if len(poss) == 0 {
+					fmt.Println("no possibilities here", i)
+					tryBacktrack = true
+					break // dead end here
+				}
+				// guess the first possible value
+				b.box[i] = poss[0]
+				// set the guess in the shadow
+				b.shadow[i] = b.guessStep
+				// increment guess step again for next deductions
+				b.guessStep++
+			}
 		}
 	}
-	brd.print()
-	fmt.Printf("Puzzle validity: %t\n", brd.valid())
-	fmt.Printf("Puzzle filled: %t\n", brd.filled())
+}
+
+func (b *board) clearGuesses(guessStep int) {
+	for i := range 81 {
+		if b.shadow[i] == guessStep {
+			b.box[i] = 0
+		}
+	}
+}
+
+// returns index, value
+func (b *board) findGuess(guessStep int) (int, int) {
+	for i := range 81 {
+		if b.shadow[i] == guessStep {
+			return i, b.box[i]
+		}
+	}
+	return -1, 0
+}
+
+func (b *board) deductiveSolve() {
+	for {
+		for b.solveHiddenSingles() != 0 {
+			continue
+		}
+		if b.filled() {
+			return
+		}
+		solvedOne := b.solveHiddenDouble()
+		if solvedOne && b.filled() {
+			return
+		} else if !solvedOne {
+			return
+		} // else, continue
+	}
 }
 
 type board struct {
 	box [81]int // 0 for empty spaces
+
+	// 0 for deduction only,
+	// 1 for guess #1, 2 for guess #1 deduction,
+	// 3 for guess #2, 4 for guess #2 deduction, etc
+	guessStep int
+	shadow    [81]int
 }
 
-func (b *board) guessOne() {
+func (b *board) solveHiddenDouble() bool {
 	for i := range 81 {
 		if b.box[i] == 0 {
 			possible := b.evalPossible(i)
-			if len(possible) > 0 && len(possible) <= 3 {
+			if len(possible) > 0 && len(possible) == 2 {
 				b.box[i] = possible[0]
-				return
-			} else {
-				// b.print()
-				// colIdx := i % 9
-				// rowIdx := (i - (colIdx)) / 9
-				// colOcc := b.colOccupants(colIdx)
-				// rowOcc := b.rowOccupants(rowIdx)
-				// panic(fmt.Sprintf("no possibilities for space %d, \n\trow (%d): %+v \n\tcol(%d): %+v", i, rowIdx, rowOcc, colIdx, colOcc))
+				if b.guessStep > 0 {
+					b.shadow[i] = b.guessStep
+				}
+				return true
 			}
 		}
 	}
-	panic("found nothing to guess")
+	return false
 }
 
 func (b *board) filled() bool {
