@@ -64,7 +64,8 @@ func (b *board) filled() bool {
 	}
 	for i := range 3 {
 		for j := range 3 {
-			houseOcc := b.houseOccupants(i, j)
+			// todo stop doing this cursed thing
+			houseOcc := b.houseOccupants(absoluteIndiciesByHouse(i, j)[0])
 			if len(houseOcc) < 9 {
 				return false
 			}
@@ -88,7 +89,8 @@ func (b *board) valid() bool {
 	}
 	for i := range 3 {
 		for j := range 3 {
-			houseOcc := b.houseOccupants(i, j)
+			// todo stop doing this cursed thing
+			houseOcc := b.houseOccupants(absoluteIndiciesByHouse(i, j)[0])
 			houseFreq := freq(houseOcc)
 			if hasOverlap(houseFreq) {
 				return false
@@ -133,20 +135,10 @@ func (b *board) solveHiddenSingles() (solved int) {
 }
 
 func (b *board) evalPossible(idx int) (possibilities []int) {
-	colIdx := idx % 9
-	rowIdx := (idx - (colIdx)) / 9
-	houseRowIdx := (rowIdx - (rowIdx % 3)) / 3
-	houseColIdx := (colIdx - (colIdx % 3)) / 3
-	occupants := b.houseOccupants(houseRowIdx, houseColIdx)
-	occupants = append(occupants, b.rowOccupants(rowIdx)...)
-	occupants = append(occupants, b.colOccupants(colIdx)...)
-	uniqueOccupants := make(map[int]struct{})
-	for _, occupant := range occupants {
-		if _, ok := uniqueOccupants[occupant]; !ok {
-			uniqueOccupants[occupant] = struct{}{}
-		}
-	}
-	// fmt.Printf("unique occupants: %+v\n", uniqueOccupants)
+	occupants := b.houseOccupants(idx)
+	occupants = append(occupants, b.colOccupants(idx)...)
+	occupants = append(occupants, b.rowOccupants(idx)...)
+	uniqueOccupants := mapUniqueOccupants(occupants)
 	for i := 1; i <= 9; i++ {
 		if _, ok := uniqueOccupants[i]; !ok {
 			possibilities = append(possibilities, i)
@@ -155,7 +147,8 @@ func (b *board) evalPossible(idx int) (possibilities []int) {
 	return possibilities
 }
 
-func (b *board) rowOccupants(rowIdx int) (occupants []int) {
+func (b *board) rowOccupants(idx int) (occupants []int) {
+	rowIdx := (idx - (idx % 9)) / 9
 	for i := rowIdx * 9; i < (rowIdx*9)+9; i++ {
 		if b.box[i] != 0 {
 			occupants = append(occupants, b.box[i])
@@ -164,7 +157,8 @@ func (b *board) rowOccupants(rowIdx int) (occupants []int) {
 	return occupants
 }
 
-func (b *board) colOccupants(colIdx int) (occupants []int) {
+func (b *board) colOccupants(idx int) (occupants []int) {
+	colIdx := idx % 9
 	for i := colIdx; i < 81; i += 9 {
 		if b.box[i] != 0 {
 			occupants = append(occupants, b.box[i])
@@ -173,17 +167,35 @@ func (b *board) colOccupants(colIdx int) (occupants []int) {
 	return occupants
 }
 
-// get the occupants of a house given any index that falls inside that house
-func (b *board) houseOccupants(houseRowIdx, houseColIdx int) (occupants []int) {
-	startingRow := houseRowIdx * 3
-	startingCol := houseColIdx * 3
+func houseIndicesByAbsolute(idx int) (houseRow, houseCol int) {
+	colIdx := idx % 9
+	rowIdx := (idx - (colIdx)) / 9
+	houseRow = (rowIdx - (rowIdx % 3)) / 3
+	houseCol = (colIdx - (colIdx % 3)) / 3
+	return
+}
+
+func absoluteIndiciesByHouse(houseRow, houseCol int) [9]int {
+	absIndicies := [9]int{}
+	startingRow := houseRow * 3
+	startingCol := houseCol * 3
+	i := 0
 	for rowOffset := range 3 {
 		startIdx := (startingRow + rowOffset) * 9
 		for colOffset := range 3 {
-			idxToCheck := startIdx + startingCol + colOffset
-			if val := b.box[idxToCheck]; val != 0 {
-				occupants = append(occupants, val)
-			}
+			absIndicies[i] = startIdx + startingCol + colOffset
+			i++
+		}
+	}
+	return absIndicies
+}
+
+// get the occupants of a house given any index that falls inside that house
+func (b *board) houseOccupants(idx int) (occupants []int) {
+	absIdxs := absoluteIndiciesByHouse(houseIndicesByAbsolute(idx))
+	for _, i := range absIdxs {
+		if val := b.box[i]; val != 0 {
+			occupants = append(occupants, val)
 		}
 	}
 	return occupants
@@ -223,4 +235,14 @@ func generateBoard(emptyCount int) (brd board) {
 		}
 	}
 	return brd
+}
+
+func mapUniqueOccupants(occupants []int) map[int]struct{} {
+	uniqueOccupants := make(map[int]struct{})
+	for _, occupant := range occupants {
+		if _, ok := uniqueOccupants[occupant]; !ok {
+			uniqueOccupants[occupant] = struct{}{}
+		}
+	}
+	return uniqueOccupants
 }
