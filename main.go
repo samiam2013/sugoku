@@ -41,7 +41,7 @@ func (b *board) backtrackSolve() {
 			for _, p := range poss {
 				if p > guessVal {
 					b.shadow[guessIdx] = b.guessStep
-					b.box[guessIdx] = guessVal
+					b.box[guessIdx] = p
 					b.guessStep++
 					break
 				}
@@ -56,7 +56,6 @@ func (b *board) backtrackSolve() {
 
 		fmt.Println("trying backtrack")
 		// time to guess
-		b.guessStep++
 		// find the first open spot
 		for i := range 81 {
 			if b.box[i] == 0 {
@@ -70,9 +69,11 @@ func (b *board) backtrackSolve() {
 				// guess the first possible value
 				b.box[i] = poss[0]
 				// set the guess in the shadow
-				b.shadow[i] = b.guessStep
-				// increment guess step again for next deductions
 				b.guessStep++
+				b.shadow[i] = b.guessStep
+				// increment guess step again for following deductions
+				b.guessStep++
+				break // break out of the loop after finding a guess
 			}
 		}
 	}
@@ -139,9 +140,10 @@ func (b *board) solveHiddenDouble() bool {
 			possible := b.evalPossible(i)
 			if len(possible) > 0 && len(possible) == 2 {
 				b.box[i] = possible[0]
-				if b.guessStep > 0 {
-					b.shadow[i] = b.guessStep
-				}
+				// this count as a guess?
+				b.guessStep++
+				b.shadow[i] = b.guessStep
+				b.guessStep++
 				if !b.valid() {
 					panic("invalid double hidden solve")
 				}
@@ -225,7 +227,7 @@ func (b *board) solveHiddenSingles() (solved int) {
 		if v == 0 {
 			if poss := b.evalPossible(i); len(poss) == 1 {
 				if b.guessStep > 0 {
-					b.box[i] = b.guessStep
+					b.shadow[i] = b.guessStep
 				}
 				b.box[i] = poss[0]
 				if !b.valid() {
