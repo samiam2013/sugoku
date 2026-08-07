@@ -20,26 +20,28 @@ func main() {
 }
 
 func (b *board) backtrackSolve() {
-	tryBacktrack := false
 	for {
 		b.deductiveSolve()
-		if !b.valid() || tryBacktrack {
+		if !b.valid() {
 			// clear all the current guess step spots
 			b.clearGuesses(b.guessStep)
 			// get the current guess in the guess step before that
 			b.guessStep--
 			guessIdx, guessVal := b.findGuess(b.guessStep)
-			fmt.Println("previous guess:", guessVal)
+			b.box[guessIdx] = 0
+			b.shadow[guessIdx] = 0
+			fmt.Println("previous guess:", guessVal, "index:", guessVal)
 			b.guessStep--
 			// guess the next possible
 			poss := b.evalPossible(guessIdx)
 			if len(poss) == 0 {
-				break
-				panic("no possible guesses at all (let alone another?)")
+				panic("no guesses possible at index")
+				// break
 			}
 			for _, p := range poss {
 				if p > guessVal {
 					b.shadow[guessIdx] = b.guessStep
+					b.box[guessIdx] = guessVal
 					b.guessStep++
 					break
 				}
@@ -47,6 +49,9 @@ func (b *board) backtrackSolve() {
 		}
 		if b.filled() {
 			return
+		}
+		if !b.valid() {
+			panic("bad after backtrack re-guess")
 		}
 
 		fmt.Println("trying backtrack")
@@ -57,9 +62,10 @@ func (b *board) backtrackSolve() {
 			if b.box[i] == 0 {
 				poss := b.evalPossible(i)
 				if len(poss) == 0 {
-					fmt.Println("no possibilities here", i)
-					tryBacktrack = true
-					break // dead end here
+					b.print()
+					fmt.Println("no possibilities at index", i)
+					continue
+					//break // dead end here
 				}
 				// guess the first possible value
 				b.box[i] = poss[0]
@@ -76,6 +82,7 @@ func (b *board) clearGuesses(guessStep int) {
 	for i := range 81 {
 		if b.shadow[i] == guessStep {
 			b.box[i] = 0
+			b.shadow[i] = 0
 		}
 	}
 }
@@ -92,13 +99,22 @@ func (b *board) findGuess(guessStep int) (int, int) {
 
 func (b *board) deductiveSolve() {
 	for {
+		// if !b.valid() {
+		// 	panic("hit invalid state in deductive solve")
+		// }
 		for b.solveHiddenSingles() != 0 {
 			continue
 		}
 		if b.filled() {
 			return
 		}
+		// if !b.valid() {
+		// 	panic("hit invalid state in deductive solve 2")
+		// }
 		solvedOne := b.solveHiddenDouble()
+		// if !b.valid() {
+		// 	panic("hit invalid state in deductive solve 3")
+		// }
 		if solvedOne && b.filled() {
 			return
 		} else if !solvedOne {
@@ -125,6 +141,9 @@ func (b *board) solveHiddenDouble() bool {
 				b.box[i] = possible[0]
 				if b.guessStep > 0 {
 					b.shadow[i] = b.guessStep
+				}
+				if !b.valid() {
+					panic("invalid double hidden solve")
 				}
 				return true
 			}
@@ -205,7 +224,13 @@ func (b *board) solveHiddenSingles() (solved int) {
 	for i, v := range b.box {
 		if v == 0 {
 			if poss := b.evalPossible(i); len(poss) == 1 {
+				if b.guessStep > 0 {
+					b.box[i] = b.guessStep
+				}
 				b.box[i] = poss[0]
+				if !b.valid() {
+					panic("invalid single hidden solve")
+				}
 				solved++
 			}
 		}
